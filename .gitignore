@@ -1,0 +1,59 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyright/
+
+# Python builds and packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+*.whl
+pip-wheel-metadata/
+
+# Virtual environments and local secrets
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Tests and coverage
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Project runtime: generated downloads and FFmpeg binaries
+downloads/
+ffmpeg/
+temp/
+ffmpeg-release-essentials.zip
+
+# Runtime logs and incomplete downloads
+*.log
+*.log.*
+*.part
+*.ytdl
+
+# Local databases (if introduced later)
+*.db
+*.sqlite3
