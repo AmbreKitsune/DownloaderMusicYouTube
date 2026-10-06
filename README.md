@@ -28,7 +28,7 @@ EN / [RU](README.ru.md)
 
 The project started as a simple script that prompted for a URL. It has since been updated with **Typer** for command-line options, **Rich** for console messages, and automatic preparation of a **local FFmpeg** installation. The audio download itself is handled by **yt-dlp**.
 
-The current version runs from Python. A standalone `music.exe`, a Windows installer, a global `music` command, and automatic opening of the output folder are **planned, not implemented**.
+**Version v0.2.0** includes a standalone **`music.exe`** and a **Windows installer**. The installer adds the program directory to your user `PATH`, so you can download music from any newly opened terminal without installing Python. Once a download finishes, the program automatically opens its `downloads/` folder.
 
 ---
 
@@ -43,6 +43,9 @@ The current version runs from Python. A standalone `music.exe`, a Windows instal
 - Reuse the local FFmpeg installation on subsequent runs.
 - Keep FFmpeg separate from the system installation and system `PATH`.
 - Show status and error messages in English, with a nonzero exit code for handled download errors.
+- Install the Windows CLI with a setup wizard that adds `music.exe` to the user's `PATH`.
+- Run the standalone executable without installing Python.
+- Save MP3 files beside the executable and open the output folder after a successful download.
 
 **Current scope:** download a URL to MP3. Playlist handling, batch downloading, and other formats are not documented as supported features yet.
 
@@ -51,12 +54,14 @@ The current version runs from Python. A standalone `music.exe`, a Windows instal
 # How It Works ⚙️
 
 1. The CLI reads the URL passed to `--download`.
-2. The program checks for `ffmpeg.exe` and `ffprobe.exe` in the project's `ffmpeg/` folder.
-3. If either file is missing, the program downloads the FFmpeg Essentials ZIP from **Gyan.dev**, extracts the two binaries, and removes its temporary files.
-4. `yt-dlp` retrieves the audio stream and hands it to the local FFmpeg installation for MP3 conversion.
-5. The final MP3 is saved in `downloads/`, relative to the **directory where the command was launched**.
+2. The application checks for `ffmpeg.exe` and `ffprobe.exe` in `ffmpeg/` **beside the application**.
+3. If either file is missing, it downloads the FFmpeg Essentials archive from **Gyan.dev**, extracts the two binaries, and cleans up temporary files.
+4. **yt-dlp** downloads the available audio, and the local **FFmpeg** converts it into MP3.
+5. The finished MP3 is saved in `downloads/` **beside `music.exe`**, and Windows File Explorer opens that directory.
 
-The initial FFmpeg download requires an internet connection and can take a few minutes. FFmpeg is not installed system-wide.
+When running from source, the application files are `src/*.py`, so the generated `ffmpeg/` and `downloads/` directories are created **inside `src/`**. The download location does not depend on the directory from which you open the terminal.
+
+FFmpeg is only downloaded on the first run (or when a binary is missing); it is not installed system-wide. A connection to YouTube is still required for downloads.
 
 ---
 
@@ -64,13 +69,15 @@ The initial FFmpeg download requires an internet connection and can take a few m
 
 | Component | Purpose |
 | --- | --- |
-| **Python 3.12+** | Application runtime |
+| **Python 3.12+** | Runtime when launching from source |
 | **Typer** | CLI options and help |
 | **Rich** | Console messages |
 | **yt-dlp** | Audio extraction and download |
 | **FFmpeg / ffprobe** | Audio conversion and media probing |
 | **Requests** | Downloading the FFmpeg archive |
 | **pathlib / zipfile / shutil** | Paths, extraction, and temporary-file cleanup |
+| **PyInstaller** | Building the standalone Windows executable |
+| **Inno Setup** | Packaging the Windows installer |
 
 **Platform:** Windows is the current target. The FFmpeg bootstrap downloads Windows `.exe` binaries; other operating systems are not supported by the current bootstrap.
 
@@ -80,170 +87,212 @@ The initial FFmpeg download requires an internet connection and can take a few m
 
 ## Requirements
 
-- Windows 10/11.
-- **Python 3.12 or newer** available from the terminal.
-- An internet connection for YouTube access and first-time FFmpeg installation.
-- Git (optional, for cloning the repository).
-- Enough free disk space for the temporary FFmpeg archive, extracted files, and downloaded audio.
+- **Windows 10/11**.
+- Internet access for YouTube and for downloading FFmpeg on first use.
+- Free disk space for the temporary FFmpeg archive, extracted binaries, and downloaded music.
+- **Python 3.12+ is required only when running from source.** It is **not required** for the released installer or standalone `music.exe`.
 
-You **do not** need to install FFmpeg manually or add it to `PATH`.
+## Recommended: Windows Installer 📦
 
-## Installation
+1. Open the [latest release](https://github.com/AmbreKitsune/DownloaderMusicYouTube/releases/latest).
+2. Download **`DownloaderMusicYouTube-Setup.exe`** and run it.
+3. Select an installation directory (the default is `%LOCALAPPDATA%\Programs\DownloaderMusicYouTube`). Administrator privileges are not required for the standard per-user installation.
+4. After installation, **open a new terminal** so the updated user `PATH` is recognized.
+5. Download an audio track:
 
-1. Download the project or clone it:
+   ```powershell
+   music.exe --download "https://www.youtube.com/watch?v=VIDEO_ID"
+   ```
+
+The setup installs `music.exe`; on first launch, the application installs its own FFmpeg binaries if needed. Finished MP3 files are stored in the installed application's `downloads/` folder, which opens automatically after a successful download.
+
+## Alternative: Standalone EXE 💻
+
+1. Download **`music.exe`** from the [latest release](https://github.com/AmbreKitsune/DownloaderMusicYouTube/releases/latest).
+2. Place it in a **writable folder** of your choice (for example, `D:\MusicDownloader`).
+3. Open a terminal in that folder and run:
+
+   ```powershell
+   .\music.exe --download "https://music.youtube.com/watch?v=VIDEO_ID"
+   ```
+
+This version needs no Python. It does **not** automatically add itself to `PATH`; invoke it by path or use the installer for global access. The portable executable creates `ffmpeg/` and `downloads/` beside itself.
+
+## Alternative: Run from Source 🐍
+
+1. Clone the project:
 
    ```powershell
    git clone https://github.com/AmbreKitsune/DownloaderMusicYouTube.git
    cd DownloaderMusicYouTube
    ```
 
-2. Create a virtual environment:
+2. Create a virtual environment and install the repository's dependencies:
 
    ```powershell
    python -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
    ```
 
-3. Install the Python dependencies:
+3. Run the CLI from the repository root:
 
    ```powershell
-   .\.venv\Scripts\python.exe -m pip install yt-dlp typer rich requests
+   .\.venv\Scripts\python.exe src/main.py --download "https://www.youtube.com/watch?v=VIDEO_ID"
    ```
 
-   **Note:** the repository's older `requirements.txt` only lists `yt_dlp`. Update it to include `typer`, `rich`, and `requests` before relying on `pip install -r requirements.txt`.
-
-4. Start a download:
-
-   ```powershell
-   .\.venv\Scripts\python.exe main.py --download "https://www.youtube.com/watch?v=VIDEO_ID"
-   ```
-
-5. Find the result in `downloads/` in the directory where you ran the command.
+Generated FFmpeg files and downloaded MP3s are stored in `src/ffmpeg/` and `src/downloads/` in source mode.
 
 ## First Run
 
-- If FFmpeg is missing, the application downloads a Windows Essentials archive and prepares `ffmpeg.exe` and `ffprobe.exe`.
-- The first run may take longer than later runs.
-- On the next run, existing binaries are reused.
+- If FFmpeg is missing, the application downloads and extracts the necessary Windows binaries automatically.
+- The first launch may take a few minutes; subsequent launches reuse the existing files.
+- The program opens the downloads folder after successful conversion.
 
 ---
 
 # CLI Usage 💻
 
-**Show help:**
+**Show help (installed version):**
 
 ```powershell
-python main.py --help
+music.exe --help
 ```
 
 **Download from YouTube:**
 
 ```powershell
-python main.py --download "https://www.youtube.com/watch?v=VIDEO_ID"
+music.exe --download "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
 **Download from YouTube Music:**
 
 ```powershell
-python main.py --download "https://music.youtube.com/watch?v=VIDEO_ID&si=SHARE_TOKEN"
+music.exe --download "https://music.youtube.com/watch?v=VIDEO_ID&si=SHARE_TOKEN"
 ```
 
-Keep URLs **inside quotation marks**, especially when they contain `&` or other characters with a special meaning in the shell. The `si` parameter is a share-link parameter; it does not need to be removed if the URL is quoted correctly.
+**Run from source (repository root):**
 
-Running `python main.py` without an option prints a hint to use `--help`. Using `--download` without a value produces Typer's argument error.
+```powershell
+python src/main.py --download "https://www.youtube.com/watch?v=VIDEO_ID"
+```
 
-The command above is **not global**: run it from the project directory for now. `music.exe --download <URL>` is the planned installed experience.
+Always **quote the complete URL**, particularly when it includes `&` or other shell-special characters. The YouTube Music `si` sharing parameter does not need manual removal when the entire URL is quoted.
+
+Without arguments, the program suggests `--help`. Passing `--download` without a URL produces Typer's standard argument error. To use `music.exe` from any directory, install it with **Setup** and open a new terminal afterward; the standalone EXE does not register itself in `PATH`.
 
 ---
 
 # Files and Paths 📁
 
+## Installed / Standalone App
+
+| Location (relative to `music.exe`) | Purpose |
+| --- | --- |
+| `music.exe` | Standalone Windows CLI executable |
+| `ffmpeg/ffmpeg.exe` | Locally installed audio converter |
+| `ffmpeg/ffprobe.exe` | Locally installed media probe |
+| `downloads/` | Downloaded MP3 files; automatically opened after success |
+| `ffmpeg-release-essentials.zip` | Temporary archive, removed after installation attempts |
+| `temp/` | Temporary extraction folder, removed after installation attempts |
+
+The installer places these files in a directory that you choose (by default `%LOCALAPPDATA%\Programs\DownloaderMusicYouTube`). They are **not saved under the terminal's current working directory**. Choose a writable directory for a standalone `music.exe`.
+
+## Source Repository
+
 | Path | Purpose |
 | --- | --- |
-| `main.py` | CLI entry point and argument handling |
-| `downloader.py` | yt-dlp options and audio downloading |
-| `ffmpeg.py` | FFmpeg detection, download, extraction, and cleanup |
-| `ffmpeg/ffmpeg.exe` | Locally installed converter (generated) |
-| `ffmpeg/ffprobe.exe` | Locally installed probing tool (generated) |
-| `ffmpeg-release-essentials.zip` | Temporary FFmpeg archive (removed after normal setup) |
-| `temp/` | Temporary extraction directory (removed after normal setup) |
-| `downloads/` | Downloaded MP3 files (generated in the working directory) |
-| `assets/icon.ico` | Application icon for future packaging |
+| `src/main.py` | CLI entry point and argument handling |
+| `src/downloader.py` | yt-dlp configuration, MP3 output, and folder opening |
+| `src/ffmpeg.py` | Local FFmpeg preparation and temporary-file cleanup |
+| `src/ffmpeg/` | Generated FFmpeg binaries when running Python directly |
+| `src/downloads/` | Generated MP3 files when running Python directly |
+| `assets/icon.ico` | Application icon |
+| `requirements.txt` | Python dependencies |
 
-**Important:** `ffmpeg/` is located next to `ffmpeg.py`, but `downloads/` uses a **relative path**. If you launch the script from a different working directory, the MP3 will be written to that directory's `downloads/` folder. A fixed user-level music directory is planned for a later release.
-
-The `.gitignore` excludes generated FFmpeg files, temporary files, build output, virtual environments, and downloaded music. It does not retroactively untrack binaries already committed to Git.
+`.gitignore` excludes runtime downloads, locally installed FFmpeg, temporary files, virtual environments, and build artifacts. It does not retroactively untrack files already committed to Git.
 
 ---
 
 # Errors and Troubleshooting ❌
 
+**`'music.exe' is not recognized`**  
+Use **`DownloaderMusicYouTube-Setup.exe`** to install the program, and then open a **new terminal**. If you downloaded the standalone EXE, use its full path or `./music.exe` (PowerShell: `.\music.exe`) from its folder.
+
 **`No module named 'typer'`, `'rich'`, `'requests'`, or `'yt_dlp'`**  
-Install all four packages into the Python environment used to launch the script. If you created `.venv`, use its Python executable.
+This concerns **source mode only**. Install dependencies using `python -m pip install -r requirements.txt` in the environment you use to run `src/main.py`.
 
 **`FFmpeg not found. Installing automatically...`**  
-This is normal on first run. Wait for the archive to download and extract.
+Expected on first use. Wait for the archive to download and extract.
 
 **`Failed to download FFmpeg`**  
-Check the internet connection and availability of the FFmpeg source, then retry. The download depends on [Gyan.dev](https://www.gyan.dev/ffmpeg/builds/).
+Check your network connection and the FFmpeg source at [Gyan.dev](https://www.gyan.dev/ffmpeg/builds/), then retry.
 
 **`FFmpeg installation failed`**  
-Check available disk space and write permissions. If necessary, close the program and inspect temporary `ffmpeg/` or `temp/` files before retrying.
+Check free disk space and whether the application folder is writable. If installation was interrupted, inspect or remove incomplete `ffmpeg/` files before retrying.
 
 **`Download failed: ...`**  
-The link may be unavailable, restricted, or unsupported, or YouTube may have changed how it serves media. Check the URL and update `yt-dlp` if necessary.
+The link might be unavailable, restricted, or unsupported, or YouTube may have changed its media delivery. Check the link. If running from source, updating `yt-dlp` may help.
 
 **`No supported JavaScript runtime` warning**  
-This warning may appear in some versions of `yt-dlp`. A download may still succeed, but available formats can be limited. It is not the same as an FFmpeg installation failure.
+Some `yt-dlp` versions can show this warning. Downloads may still work, but available audio formats may be limited. It does not mean FFmpeg installation failed.
 
 **`Option '--download' requires an argument`**  
-Add a URL after `--download`. Example: `python main.py --download "https://www.youtube.com/watch?v=VIDEO_ID"`.
+Pass a URL, for example: `music.exe --download "https://www.youtube.com/watch?v=VIDEO_ID"`.
 
 **The MP3 is not where expected**  
-Check `downloads/` relative to the terminal's current working directory, not necessarily next to `main.py`.
+Check `downloads/` beside **`music.exe`** (installed or portable) or `src/downloads/` (Python source mode). The folder should also open after a successful download.
 
 ---
 
 # Q&A ❓
 
-**Q: Does the application install FFmpeg globally?**  
-**A:** No. It downloads local copies of `ffmpeg.exe` and `ffprobe.exe` under the project directory.
-
 **Q: Is Python required?**  
-**A:** Yes, for the current source-code version. A standalone executable and installer are planned.
+**A:** No, not for the released installer or `music.exe`. Python is only required to run the source code.
 
-**Q: Can I run `music.exe` from any folder?**  
-**A:** Not yet. A setup process and a command available through `PATH` are planned.
+**Q: Can I run `music.exe` from any directory?**  
+**A:** Yes, after installing with Setup and starting a new terminal. The installer registers the installation directory in the user `PATH`.
 
-**Q: Does it support YouTube Music links?**  
-**A:** Direct track URLs have been used successfully. Keep the whole link quoted when it contains `&`.
+**Q: Does FFmpeg get installed system-wide?**  
+**A:** No. The application keeps `ffmpeg.exe` and `ffprobe.exe` beside itself inside `ffmpeg/`.
 
-**Q: Does the tool provide original lossless audio?**  
-**A:** No. It converts the available source stream to MP3, requesting 192 kbps output. Converting cannot restore detail missing from the original stream.
+**Q: Where is my music?**  
+**A:** In `downloads/` beside `music.exe`. When running source code, it is in `src/downloads/`.
 
-**Q: Does the application open the music folder automatically?**  
-**A:** Not in the current version. Open `downloads/` manually.
+**Q: Does the application open the output folder automatically?**  
+**A:** Yes, after a successful download and MP3 conversion on Windows.
 
-**Q: Does it have a graphical user interface?**  
-**A:** No. This project is designed for the terminal.
+**Q: Does it support YouTube Music URLs?**  
+**A:** Direct track links have been tested. Quote the whole URL when it contains `&`.
+
+**Q: Is the result lossless audio?**  
+**A:** No. It converts the available source audio into MP3 using the requested 192 kbps encoding quality; conversion cannot restore information missing from the original source.
+
+**Q: Is there a graphical interface?**  
+**A:** No. The program is designed as a Windows console application.
+
+**Q: What happens when I uninstall?**  
+**A:** The installer is designed to remove the application and its `PATH` entry while preserving the `downloads/` directory. Back up important music before manually deleting the installation folder.
 
 ---
 
 # Limitations 📢
 
-- The current FFmpeg downloader is **Windows-specific**.
-- FFmpeg setup depends on the availability of a third-party download source.
-- YouTube or YouTube Music changes can break extraction even when the program itself has not changed.
-- Some videos may be inaccessible because of region, age, login, or other service restrictions.
-- Playlist, batch, and non-MP3 output workflows have not been validated as part of this release.
-- The filename is based on the media title; identical or problematic titles may require additional handling.
-- The tool does not currently provide a global command, dedicated installer, fixed download location, or automatic folder opening.
-- Download only content you are authorized to save, and follow the applicable platform terms and copyright rules.
+- The current implementation and installer are **Windows-specific**.
+- FFmpeg installation requires access to a third-party download source on first use.
+- Changes to YouTube or YouTube Music may affect extraction and download availability.
+- Region restrictions, authentication requirements, and other platform limitations may prevent some downloads.
+- Playlist support, batch processing, and non-MP3 output have not been validated for this release.
+- MP3 filenames are derived from media titles; duplicate or unusual titles can require special handling.
+- The program needs write access beside `music.exe` to store FFmpeg and music. Avoid protected directories when using the standalone version.
+- A `yt-dlp` warning about a missing JavaScript runtime can affect available formats even when a download completes.
+- Download only material you are authorized to save, in accordance with applicable platform terms and copyright rules.
 
 ---
 
 # Links 🙀
 
 - **Repository:** [DownloaderMusicYouTube](https://github.com/AmbreKitsune/DownloaderMusicYouTube)
+- **Latest release (installer + EXE):** [GitHub Releases](https://github.com/AmbreKitsune/DownloaderMusicYouTube/releases/latest)
 - **FFmpeg:** [ffmpeg.org](https://ffmpeg.org/)
 - **FFmpeg Windows builds:** [Gyan.dev](https://www.gyan.dev/ffmpeg/builds/)
 - **yt-dlp:** [GitHub](https://github.com/yt-dlp/yt-dlp)
